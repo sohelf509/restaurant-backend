@@ -22,7 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'https://restaurant-admin-fifn.onrender.com'], // Your frontend URLs
+  origin: ['http://localhost:5173', 'http://localhost:5174', 'https://restaurant-admin-fifn.onrender.com', 'https://restaurant-frontend-271u.onrender.com'], // Your frontend URLs
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], // ✅ Add PATCH
   allowedHeaders: ['Content-Type', 'Authorization']
