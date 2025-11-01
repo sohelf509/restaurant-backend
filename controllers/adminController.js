@@ -28,7 +28,7 @@ export const loginAdmin = async (req, res) => {
       res.cookie("adminToken", token, {
         httpOnly: true,                       // not accessible via JS
         secure: process.env.NODE_ENV === "production", // only HTTPS in prod
-        sameSite: "strict",
+        sameSite: "none",
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
 
