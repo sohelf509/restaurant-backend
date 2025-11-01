@@ -32,4 +32,4 @@ target/ # Java Maven/Gradle
 
 # Ignore sensitive information (e.g., API keys, passwords)
 .env
-config.local.php
+config.local.phpnode_modules/
