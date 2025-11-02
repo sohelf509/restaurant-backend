@@ -1,4 +1,3 @@
-// backend/src/models/Order.js
 import mongoose from 'mongoose';
 
 const orderSchema = new mongoose.Schema(
@@ -10,12 +9,29 @@ const orderSchema = new mongoose.Schema(
     },
     tableNumber: {
       type: String,
-      required: [true, 'Table number is required'],
-      trim: true
+      trim: true,
+      required: function() {
+        return this.orderType === 'dine-in';
+      }
     },
     customerName: {
       type: String,
-      trim: true
+      trim: true,
+      required: [true, 'Customer name is required']
+    },
+    phoneNumber: {
+      type: String,
+      trim: true,
+      required: function() {
+        return this.orderType === 'home-delivery';
+      }
+    },
+    deliveryAddress: {
+      type: String,
+      trim: true,
+      required: function() {
+        return this.orderType === 'home-delivery';
+      }
     },
     items: [
       {
@@ -42,11 +58,16 @@ const orderSchema = new mongoose.Schema(
       required: [true, 'Total amount is required'],
       min: [0, 'Total amount cannot be negative']
     },
+    deliveryFee: {
+      type: Number,
+      default: 0,
+      min: [0, 'Delivery fee cannot be negative']
+    },
     status: {
       type: String,
       default: 'pending',
       enum: {
-        values: ['pending', 'preparing', 'served', 'completed'],
+        values: ['pending', 'preparing', 'served', 'completed', 'out-for-delivery', 'delivered'],
         message: '{VALUE} is not a valid status'
       }
     },
@@ -57,6 +78,21 @@ const orderSchema = new mongoose.Schema(
         values: ['dine-in', 'home-delivery'],
         message: '{VALUE} is not a valid order type'
       }
+    },
+    paymentMethod: {
+      type: String,
+      enum: {
+        values: ['cash-on-delivery', 'online-payment', 'card'],
+        message: '{VALUE} is not a valid payment method'
+      },
+      required: function() {
+        return this.orderType === 'home-delivery';
+      }
+    },
+    paymentStatus: {
+      type: String,
+      default: 'pending',
+      enum: ['pending', 'paid', 'failed']
     },
     createdAt: {
       type: Date,

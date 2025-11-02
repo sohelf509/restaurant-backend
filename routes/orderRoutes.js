@@ -9,14 +9,55 @@ const router = express.Router();
 // POST /api/orders - Place a new order
 router.post('/', async (req, res) => {
   try {
-    const { tableNumber, customerName, userId, items, orderType } = req.body;
+    const { 
+      tableNumber, 
+      customerName, 
+      userId, 
+      items, 
+      orderType, 
+      deliveryAddress, 
+      phoneNumber, 
+      paymentMethod 
+    } = req.body;
 
-    // Validate required fields
-    if (!tableNumber || !items || items.length === 0) {
+    // Validate required fields based on order type
+    const actualOrderType = orderType || 'dine-in';
+    
+    if (!items || items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Table number and items are required'
+        message: 'Items are required'
       });
+    }
+
+    // Validation for dine-in orders
+    if (actualOrderType === 'dine-in' && !tableNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Table number is required for dine-in orders'
+      });
+    }
+
+    // Validation for home delivery orders
+    if (actualOrderType === 'home-delivery') {
+      if (!deliveryAddress || !phoneNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Delivery address and phone number are required for home delivery'
+        });
+      }
+      if (!paymentMethod) {
+        return res.status(400).json({
+          success: false,
+          message: 'Payment method is required for home delivery'
+        });
+      }
+      if (!customerName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Customer name is required for home delivery'
+        });
+      }
     }
 
     // If userId is provided, verify user exists
@@ -63,14 +104,34 @@ router.post('/', async (req, res) => {
       totalAmount += price * quantity;
     }
 
+    // Add delivery fee for home delivery
+    let deliveryFee = 0;
+    if (actualOrderType === 'home-delivery') {
+      deliveryFee = 5.00; // $5 delivery fee
+      totalAmount += deliveryFee;
+    }
+
     // Create new order
     const orderData = {
-      tableNumber,
-      customerName,
+      customerName: customerName || 'Guest',
       items: orderItems,
       totalAmount,
-      orderType: orderType || 'dine-in'
+      orderType: actualOrderType,
+      deliveryFee: deliveryFee
     };
+
+    // Add table number only for dine-in
+    if (actualOrderType === 'dine-in') {
+      orderData.tableNumber = tableNumber;
+    }
+
+    // Add delivery details for home delivery
+    if (actualOrderType === 'home-delivery') {
+      orderData.deliveryAddress = deliveryAddress;
+      orderData.phoneNumber = phoneNumber;
+      orderData.paymentMethod = paymentMethod;
+      orderData.paymentStatus = paymentMethod === 'cash-on-delivery' ? 'pending' : 'pending';
+    }
 
     // Add user reference if userId is provided
     if (userId) {
@@ -154,23 +215,9 @@ router.put('/:id/status', async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    // Validate status
-    const validStatuses = ['pending', 'preparing', 'served', 'completed'];
-    if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Status must be one of: ${validStatuses.join(', ')}`
-      });
-    }
-
-    const order = await Order.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true, runValidators: true }
-    )
-      .populate('items.menuItem')
-      .populate('user', 'name phone');
-
+    // Get the order first to check its type
+    const order = await Order.findById(id);
+    
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -178,9 +225,32 @@ router.put('/:id/status', async (req, res) => {
       });
     }
 
+    // Validate status based on order type
+    let validStatuses;
+    if (order.orderType === 'home-delivery') {
+      validStatuses = ['pending', 'preparing', 'out-for-delivery', 'delivered'];
+    } else {
+      validStatuses = ['pending', 'preparing', 'served', 'completed'];
+    }
+
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Status must be one of: ${validStatuses.join(', ')}`
+      });
+    }
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true, runValidators: true }
+    )
+      .populate('items.menuItem')
+      .populate('user', 'name phone');
+
     res.status(200).json({
       success: true,
-      data: order
+      data: updatedOrder
     });
   } catch (error) {
     res.status(400).json({
