@@ -55,6 +55,10 @@ async function connectDB(options = {}) {
       await mongoose.connect(uri, mongooseOptions);
       
       console.log(`✓ MongoDB connection established on attempt ${attempt}`);
+      
+      // Clean up old indexes after successful connection
+      await cleanupOldIndexes();
+      
       return mongoose.connection;
     } catch (error) {
       console.error(`✗ Connection attempt ${attempt} failed:`, error.message);
@@ -69,6 +73,38 @@ async function connectDB(options = {}) {
       const backoffDelay = delay * Math.pow(2, attempt - 1);
       console.log(`  Retrying in ${backoffDelay}ms...`);
       await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    }
+  }
+}
+
+/**
+ * Cleans up old/problematic indexes from collections
+ */
+async function cleanupOldIndexes() {
+  try {
+    console.log('→ Checking for old indexes...');
+    
+    const db = mongoose.connection.db;
+    const ordersCollection = db.collection('orders');
+    
+    // Get all indexes
+    const indexes = await ordersCollection.indexes();
+    const indexNames = indexes.map(idx => idx.name);
+    
+    // Drop orderId_1 index if it exists
+    if (indexNames.includes('orderId_1')) {
+      console.log('  Found old orderId_1 index, dropping...');
+      await ordersCollection.dropIndex('orderId_1');
+      console.log('✓ Successfully dropped orderId_1 index');
+    } else {
+      console.log('✓ No old indexes to clean up');
+    }
+  } catch (error) {
+    // Don't fail the connection if index cleanup fails
+    if (error.message.includes('index not found')) {
+      console.log('✓ No old indexes found');
+    } else {
+      console.warn('⚠ Index cleanup warning:', error.message);
     }
   }
 }
@@ -103,3 +139,4 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGUSR2', () => shutdown('SIGUSR2')); // nodemon restart
 
 export default connectDB;
+export { closeDB, cleanupOldIndexes };
